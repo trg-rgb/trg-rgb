@@ -2,7 +2,7 @@
 
  # Tanmay Gulhane
  
-**I port HPC libraries to RISC-V and verify they actually vectorize.**
+**Systems and toolchain work on RISC-V: cross-compilation, vectorization, and performance verification.**
  
 I build things that have to work outside controlled environments.
  
@@ -12,7 +12,8 @@ B.Tech Robotics & Automation · MIT World Peace University, Pune
 [![Hugging Face](https://img.shields.io/badge/Hugging%20Face-tanmaytrg-yellow?style=flat&logo=huggingface)](https://huggingface.co/spaces/tanmaytrg/Pretrained_CNN_6_class_image_classification)
  
 </div>
----
+
+
  
 ## What I do
  
