@@ -2,7 +2,7 @@
 
 # Tanmay Gulhane
 
-**Compiler and toolchain work on RISC-V: LLVM and GCC backends, hardware security extensions, and correctness verification.**
+**RISC-V from the compiler down to the RTL: LLVM and GCC backends, hardware security extensions, and verification built to survive someone checking it.**
 
 I build things that have to work outside controlled environments.
 
@@ -15,9 +15,9 @@ B.Tech Robotics & Automation · MIT World Peace University, Pune
 
 ## What I do
 
-I work on RISC-V compiler toolchains and on proving that low-level systems do what their specifications say. That runs in both directions: upstream patches to LLVM and GCC, and correctness findings in a real RISC-V core, each reproduced in simulation before I file it.
+I work on RISC-V compiler toolchains, and on proving that low-level systems do what their specifications say. That runs in both directions: upstream patches to LLVM and GCC, RTL I have written and verified myself, and correctness findings in a real RISC-V core, each reproduced in simulation before I file it.
 
-Everything here is reproducible from a single command. I document the tests that fail instead of tuning them away, and I defer performance claims to real hardware rather than dressing up emulator timings as throughput.
+Everything here is reproducible from a single command. I document the tests that fail instead of tuning them away, I report the measurements that contradicted what I expected, and I defer performance claims to real hardware rather than dressing up emulator timings as throughput.
 
 ---
 
@@ -35,24 +35,49 @@ Taught the vectorizer to handle chained first-order recurrences, a missed optimi
 
 ## RISC-V security: Data-Flow Integrity
 
-**[riscv-dfi](https://github.com/trg-rgb/riscv-dfi)** — DFI for RISC-V, from the compiler down.
+**[riscv-dfi](https://github.com/trg-rgb/riscv-dfi)**. DFI for RISC-V, from the compiler down.
 
-An LLVM 18 pass that instruments every store with a SETDEF and every load with a CHECKDEF against a shadow reaching-definition table. It catches a non-control-data memory corruption that Control-Flow Integrity structurally cannot see, and does not false-positive on legitimate same-object access. Ships with a file-level map for porting the matching hardware extension onto the BSC Sargantana core: decode, check unit at the load-store unit, enforcement at retire, CSR state and fault path, with verified file and line references. Reproduced on two machines; CI asserts the demo actually traps.
+An LLVM 18 pass that instruments every store with a SETDEF and every load with a CHECKDEF against a shadow reaching-definition table. It catches a non-control-data memory corruption that Control-Flow Integrity structurally cannot see, and does not false-positive on legitimate same-object access. Ships with a file-level map for porting the matching hardware extension onto the BSC Sargantana core: decode, check unit at the load-store unit, enforcement at retire, CSR state and fault path, with verified file and line references, and an explicit list of the design decisions it deliberately leaves open. Reproduced on two machines; CI asserts the demo actually traps.
 
-**[count-mem-ops](https://github.com/trg-rgb/count-mem-ops)** — the pass that preceded it, counting load and store instructions per function. CI re-derives the expected counts from the raw IR and fails on mismatch.
+**[count-mem-ops](https://github.com/trg-rgb/count-mem-ops)** is the pass that preceded it, counting load and store instructions per function. CI re-derives the expected counts from the raw IR and fails on mismatch.
+
+---
+
+## Hardware design and verification
+
+**[cam](https://github.com/trg-rgb/cam)**. A parameterised content-addressable memory in SystemVerilog, with the verification it would need before anyone trusted it.
+
+Four entries, 32-bit keys, one comparator per entry. Duplicate keys are resolved deterministically and reported on a status output rather than declared illegal and left undefined, because in a metadata table a duplicate address means the allocator has gone wrong and that is worth surfacing. Five concurrent assertions live in the design rather than in the testbench, so they hold for any instantiation.
+
+Verified three ways, all of it from `./run.sh`, all of it on packages you can `apt-get install`, none of it needing a commercial licence.
+
+**Simulation.** A reference model written in a deliberately different style from the design, eight directed cases at the corners a CAM actually gets wrong, then 20,000 randomised cycles compared every cycle. 20,020 checks, 0 errors, and thirteen functional coverage bins where the run *fails* if any bin was never exercised. Identical results under Verilator and Icarus, which are independent implementations, so agreement between them says more than a pass on either alone.
+
+**Formal.** Every assertion proved for all reachable states by temporal induction, in four configurations, on the SAT engine built into Yosys. That includes the property simulation is worst at reaching, which is completeness: if any valid entry holds the searched key, the CAM must report a hit. A CAM that silently misses is the dangerous failure, not one that over-reports. The proof is also mutation tested, because a proof nothing can falsify proves nothing: five one-line bugs are injected one at a time and the run fails if any of them survives.
+
+**Synthesis.** A sweep across depth, key width and the output-register setting, reporting cell count and logic depth on two Yosys versions, honest that without a PDK these are not areas in square micrometres. Two negative results are kept in the README rather than quietly removed: the output register did not shorten the measured critical path, and the cleverer priority encoder I tried was worse on both axes because I had replaced one carry chain with another.
+
+Written as the hardware coding challenge for the Sargantana tightly-coupled DFI project, since an associative lookup from an address to the identifier of the instruction that last wrote it is exactly the structure a DFI metadata table is.
 
 ---
 
 ## RISC-V core: correctness findings in BSC Sargantana
 
-Four findings in the Sargantana core and its CSR module, each filed as a paired issue and pull request, and each reproduced on the core_tile Verilator simulator with before-and-after output before filing.
+Seven findings in the Sargantana core and its CSR module. Six are filed as a paired issue and pull request, and every one was reproduced on the core_tile Verilator simulator, with before-and-after output, before I filed it.
 
 | Finding | Where |
 |---|---|
 | `vwsll` checked register alignment on the narrow source instead of the wide destination, both rejecting legal encodings and accepting illegal ones | [#70](https://github.com/bsc-loca/sargantana/issues/70), [#71](https://github.com/bsc-loca/sargantana/pull/71) |
 | Zvbb VXUNARY0 ops denied in-place operation (`vd == vs2`) that RVV 1.0 permits for same-width unary ops | [#66](https://github.com/bsc-loca/sargantana/issues/66), [#69](https://github.com/bsc-loca/sargantana/pull/69) |
-| `vfwcvt` and `vfncvt` skipped the widen and narrow alignment check every integer widening op enforces | [#75](https://github.com/bsc-loca/sargantana/issues/75), [#76](https://github.com/bsc-loca/sargantana/pull/76) |
+| `vfwcvt` and `vfncvt` skipped the widening and narrowing alignment check every integer widening op enforces | [#75](https://github.com/bsc-loca/sargantana/issues/75), [#76](https://github.com/bsc-loca/sargantana/pull/76) |
+| The vector permute ops (`vrgather`, `vslideup`, `vslide1up`, `vcompress`) accepted reserved `vd`/`vs` overlap encodings the specification forbids | [#89](https://github.com/bsc-loca/sargantana/issues/89), [#90](https://github.com/bsc-loca/sargantana/pull/90) |
 | `stvec` and `sepc` applied weaker WARL masking than `mtvec` and `mepc` | [csr#5](https://github.com/bsc-loca/csr/issues/5), [csr#6](https://github.com/bsc-loca/csr/pull/6) |
+| `vsstatus.SD` did not summarise `VS`, so a guest OS testing the summary bit would skip saving dirty vector state across a context switch, silently and without a fault | [csr#8](https://github.com/bsc-loca/csr/issues/8), [csr#9](https://github.com/bsc-loca/csr/pull/9) |
+| Widening and narrowing ops are limited to `vl <= VLMAX/2`, which software has no architectural way to discover | [#91](https://github.com/bsc-loca/sargantana/issues/91) |
+
+The maintainer has marked three of these for the next release: the Zvbb fix outright, and the two alignment fixes once I added an overlap guard he asked for, which is now in both pull requests and verified at fractional LMUL against the reference model, with the full 315-test ISA suite re-run unchanged.
+
+**The last row is not a bug, and that is the point.** A randomised differential fuzzer I wrote, which generates RVV programs and compares the core against the spike model the repository already vendors, flagged widening operations raising an illegal instruction above `vl = VLMAX/2`. The reproducer was minimal and it looked like a defect. Before filing I traced the limit through `vset_module.sv:98` into every widening guard in the decoder and concluded BSC had done it deliberately, so the issue says so in its title, asks for a documentation note instead of a fix, and explains the consequence: `vsetvli` for VLMAX followed by `vwadd` is what an autovectorizer emits, and it traps.
 
 ---
 
@@ -92,6 +117,8 @@ The INT8-quantized version of this model is what later ran inference on RISC-V v
 ![GCC](https://img.shields.io/badge/GCC-A42E2B?style=flat&logo=gnu&logoColor=white)
 ![SystemVerilog](https://img.shields.io/badge/SystemVerilog-1D5E8A?style=flat)
 ![Verilator](https://img.shields.io/badge/Verilator-2E6E4E?style=flat)
+![Icarus Verilog](https://img.shields.io/badge/Icarus%20Verilog-4B7BA8?style=flat)
+![Yosys](https://img.shields.io/badge/Yosys-6A4C93?style=flat)
 ![QEMU](https://img.shields.io/badge/QEMU-FF6600?style=flat&logo=qemu&logoColor=white)
 ![CMake](https://img.shields.io/badge/CMake-064F8C?style=flat&logo=cmake&logoColor=white)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-FF6F00?style=flat&logo=tensorflow&logoColor=white)
@@ -104,4 +131,3 @@ The INT8-quantized version of this model is what later ran inference on RISC-V v
 B.Tech 2025–2029 · open to internships in RISC-V, compilers, systems software, and toolchains
 
 </div>
-
