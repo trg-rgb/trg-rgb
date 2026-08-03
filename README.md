@@ -25,7 +25,7 @@ Everything here is reproducible from a single command. I document the tests that
 
 **LLVM, RISC-V backend** · [llvm-project#202201](https://github.com/llvm/llvm-project/pull/202201)
 
-Fixed an assertion in the RISC-V codegen combine (`combineBinOpOfExtractToReduceTree`) that crashed on a `<1 x i1>` operation under `zve32x`. Found by fuzzing the backend with `llvm-stress`, reduced with `llvm-reduce`, diagnosed as a combine asserting where it should have declined. Regression test added, full RISC-V codegen suite passing. Reviewed and approved by a RISC-V LLVM maintainer.
+Fixed an assertion in the RISC-V codegen combine (`combineBinOpOfExtractToReduceTree`) that crashed on a `<1 x i1>` operation under `zve32x`. Found by fuzzing the backend with `llvm-stress`, reduced with `llvm-reduce`, diagnosed as a combine asserting where it should have declined. Regression test added, full RISC-V codegen suite passing. Reviewed and approved by a RISC-V LLVM maintainer, and **merged**
 
 **GCC, loop vectorizer** · [PR tree-optimization/116338](https://gcc.gnu.org/pipermail/gcc-patches/2026-July/725327.html)
 
