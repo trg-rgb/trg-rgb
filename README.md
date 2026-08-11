@@ -63,7 +63,7 @@ Written as the hardware coding challenge for the Sargantana tightly-coupled DFI 
 
 ## RISC-V core: correctness findings in BSC Sargantana
 
-Seven findings in the Sargantana core and its CSR module. Six are filed as a paired issue and pull request, and every one was reproduced on the core_tile Verilator simulator, with before-and-after output, before I filed it.
+Seven findings in the Sargantana core and its CSR module. Each is filed as a paired issue and pull request, and every one was reproduced on the core_tile Verilator simulator, with before-and-after output, before I filed it.
 
 | Finding | Where |
 |---|---|
@@ -73,11 +73,11 @@ Seven findings in the Sargantana core and its CSR module. Six are filed as a pai
 | The vector permute ops (`vrgather`, `vslideup`, `vslide1up`, `vcompress`) accepted reserved `vd`/`vs` overlap encodings the specification forbids | [#89](https://github.com/bsc-loca/sargantana/issues/89), [#90](https://github.com/bsc-loca/sargantana/pull/90) |
 | `stvec` and `sepc` applied weaker WARL masking than `mtvec` and `mepc` | [csr#5](https://github.com/bsc-loca/csr/issues/5), [csr#6](https://github.com/bsc-loca/csr/pull/6) |
 | `vsstatus.SD` did not summarise `VS`, so a guest OS testing the summary bit would skip saving dirty vector state across a context switch, silently and without a fault | [csr#8](https://github.com/bsc-loca/csr/issues/8), [csr#9](https://github.com/bsc-loca/csr/pull/9) |
-| Widening and narrowing ops are limited to `vl <= VLMAX/2`, which software has no architectural way to discover | [#91](https://github.com/bsc-loca/sargantana/issues/91) |
+| Widening and narrowing ops are limited to `vl <= VLMAX/2`, which software has no architectural way to discover | [#91](https://github.com/bsc-loca/sargantana/issues/91), [#108](https://github.com/bsc-loca/sargantana/pull/108) |
 
-The maintainer has marked three of these for the next release: the Zvbb fix outright, and the two alignment fixes once I added an overlap guard he asked for, which is now in both pull requests and verified at fractional LMUL against the reference model, with the full 315-test ISA suite re-run unchanged.
+The maintainer has marked four of these for the next release: the Zvbb fix outright, the vector permute overlap fix, and the two alignment fixes once I added an overlap guard he asked for, which is now in both pull requests and verified at fractional LMUL against the reference model, with the full 315-test ISA suite re-run unchanged.
 
-**The last row is not a bug, and that is the point.** A randomised differential fuzzer I wrote, which generates RVV programs and compares the core against the spike model the repository already vendors, flagged widening operations raising an illegal instruction above `vl = VLMAX/2`. The reproducer was minimal and it looked like a defect. Before filing I traced the limit through `vset_module.sv:98` into every widening guard in the decoder and concluded BSC had done it deliberately, so the issue says so in its title, asks for a documentation note instead of a fix, and explains the consequence: `vsetvli` for VLMAX followed by `vwadd` is what an autovectorizer emits, and it traps.
+**The last row is not a bug, and that is the point.** A randomised differential fuzzer I wrote, which generates RVV programs and compares the core against the spike model the repository already vendors, flagged widening operations raising an illegal instruction above `vl = VLMAX/2`. The reproducer was minimal and it looked like a defect. Before filing I traced the limit through `vset_module.sv:98` into every widening guard in the decoder and concluded BSC had done it deliberately, so the issue says so in its title, asks for a documentation note instead of a fix, and explains the consequence: `vsetvli` for VLMAX followed by `vwadd` is what an autovectorizer emits, and it traps. The maintainer confirmed the analysis was correct and asked me to make the documentation change myself, which is open as [#108](https://github.com/bsc-loca/sargantana/pull/108).
 
 ---
 
